@@ -144,7 +144,7 @@ func UpdateProject(
 	err := request(
 		c,
 		ctx,
-		http.MethodPut,
+		http.MethodPatch,
 		"/api/projects/"+id,
 		input,
 		&project,
