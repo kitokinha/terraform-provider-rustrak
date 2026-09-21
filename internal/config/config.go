@@ -2,7 +2,7 @@ package config
 
 const (
 	// Version of the provider
-	Version = "0.1.1"
+	Version = "0.1.2"
 
 	// UserAgent is the user agent for the provider
 	UserAgent = "terraform-provider-rustrak/" + Version
