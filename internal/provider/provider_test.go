@@ -35,9 +35,6 @@ func testAccPreCheck(t *testing.T) {
 	if os.Getenv("RUSTRAK_TOKEN") == "" {
 		t.Fatal("RUSTRAK_TOKEN must be set for acceptance tests")
 	}
-	if os.Getenv("RUSTRAK_TEST_APP_ID") == "" {
-		t.Fatal("RUSTRAK_TEST_APP_ID must be set for acceptance tests")
-	}
 }
 
 func TestAccrustrakSecret_basic(t *testing.T) {
@@ -69,10 +66,9 @@ func TestAccrustrakSecret_basic(t *testing.T) {
 func testAccSecretConfig(key, value string) string {
 	return fmt.Sprintf(`
 resource "rustrak_secret" "test" {
-  app_id = %q
   env    = "development"
   key    = %q
   value  = %q
 }
-`, os.Getenv("RUSTRAK_TEST_APP_ID"), key, value)
+`, key, value)
 }
