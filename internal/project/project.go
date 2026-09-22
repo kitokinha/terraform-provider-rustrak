@@ -75,7 +75,7 @@ func request(
 	defer resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("rustrak API returned %s", resp.Status)
+		return &client.APIError{StatusCode: resp.StatusCode, Status: resp.Status}
 	}
 
 	if result == nil {
@@ -104,6 +104,9 @@ func ReadProject(
 		nil,
 		&project,
 	)
+	if client.IsNotFound(err) {
+		return nil, nil
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -161,7 +164,7 @@ func DeleteProject(
 	ctx context.Context,
 	id string,
 ) error {
-	return request(
+	err := request(
 		c,
 		ctx,
 		http.MethodDelete,
@@ -169,4 +172,8 @@ func DeleteProject(
 		nil,
 		nil,
 	)
+	if client.IsNotFound(err) {
+		return nil
+	}
+	return err
 }

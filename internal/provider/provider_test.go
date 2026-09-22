@@ -1,74 +1,58 @@
 package provider
 
 import (
-	"fmt"
-	"os"
+	"context"
 	"testing"
 
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/kitokinha/terraform-provider-rustrak/internal/client"
+	"github.com/kitokinha/terraform-provider-rustrak/internal/config"
 )
 
-var testAccProviders map[string]*schema.Provider
-var testAccProvider *schema.Provider
-
-func init() {
-	testAccProvider = Provider()
-	testAccProviders = map[string]*schema.Provider{
-		"rustrak": testAccProvider,
-	}
-}
-
-// TestProvider validates the provider's schema is internally consistent.
-// This alone won't catch the resourceApplication schema gap unless its
-// CreateContext is exercised, but it's a fast first check.
 func TestProvider(t *testing.T) {
-	if err := Provider().InternalValidate(); err != nil {
-		t.Fatalf("provider InternalValidate failed: %s", err)
+	p := Provider()
+	if err := p.InternalValidate(); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"rustrak_project", "rustrak_alert_channel"} {
+		if p.ResourcesMap[name] == nil {
+			t.Errorf("missing resource %s", name)
+		}
+	}
+	if !p.Schema["rustrak_token"].Sensitive {
+		t.Error("authentication token must be sensitive")
 	}
 }
 
-// testAccPreCheck ensures required env vars are set before any TF_ACC test
-// runs. resource.Test itself skips the whole test if TF_ACC is unset, so
-// these acceptance tests never run in a normal `go test ./...`.
-func testAccPreCheck(t *testing.T) {
-	if os.Getenv("RUSTRAK_TOKEN") == "" {
-		t.Fatal("RUSTRAK_TOKEN must be set for acceptance tests")
+func TestProviderConfigure(t *testing.T) {
+	for _, tt := range []struct {
+		name, host, token, service, pat string
+		raw                             map[string]any
+		wantHost, wantToken             string
+	}{
+		{name: "defaults", pat: "pat", wantHost: config.DefaultHostURL, wantToken: "pat"},
+		{name: "service before PAT", host: "https://env.example.com", service: "service", pat: "pat", wantHost: "https://env.example.com", wantToken: "service"},
+		{name: "primary before service", token: "primary", service: "service", pat: "pat", wantHost: config.DefaultHostURL, wantToken: "primary"},
+		{name: "explicit overrides environment", host: "https://env.example.com", token: "environment", raw: map[string]any{"host": "https://explicit.example.com", "rustrak_token": "explicit"}, wantHost: "https://explicit.example.com", wantToken: "explicit"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv("RUSTRAK_HOST", tt.host)
+			t.Setenv("RUSTRAK_TOKEN", tt.token)
+			t.Setenv("RUSTRAK_SERVICE_TOKEN", tt.service)
+			t.Setenv("RUSTRAK_PAT_TOKEN", tt.pat)
+			p := Provider()
+			d := schema.TestResourceDataRaw(t, p.Schema, tt.raw)
+			meta, diags := p.ConfigureContextFunc(context.Background(), d)
+			if diags.HasError() {
+				t.Fatal(diags)
+			}
+			c, ok := meta.(*client.RustrakClient)
+			if !ok {
+				t.Fatalf("client type = %T", meta)
+			}
+			if c.HostURL != tt.wantHost || c.Token != tt.wantToken || c.HTTPClient == nil {
+				t.Error("provider did not configure the expected host, token, and HTTP client")
+			}
+		})
 	}
-}
-
-func TestAccrustrakSecret_basic(t *testing.T) {
-	resource.Test(t, resource.TestCase{
-		PreCheck:  func() { testAccPreCheck(t) },
-		Providers: testAccProviders,
-		Steps: []resource.TestStep{
-			{
-				Config: testAccSecretConfig("TEST_KEY", "test-value-1"),
-				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckResourceAttr("rustrak_secret.test", "key", "TEST_KEY"),
-					resource.TestCheckResourceAttr("rustrak_secret.test", "value", "test-value-1"),
-					resource.TestCheckResourceAttrSet("rustrak_secret.test", "id"),
-					resource.TestCheckResourceAttrSet("rustrak_secret.test", "version"),
-				),
-			},
-			{
-				// Second step re-applies with a changed value to exercise the
-				// update path (resourceSecretUpdate), not just create.
-				Config: testAccSecretConfig("TEST_KEY", "test-value-2"),
-				Check: resource.ComposeTestCheckFunc(
-					resource.TestCheckResourceAttr("rustrak_secret.test", "value", "test-value-2"),
-				),
-			},
-		},
-	})
-}
-
-func testAccSecretConfig(key, value string) string {
-	return fmt.Sprintf(`
-resource "rustrak_secret" "test" {
-  env    = "development"
-  key    = %q
-  value  = %q
-}
-`, key, value)
 }

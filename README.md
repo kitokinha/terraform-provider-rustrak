@@ -81,7 +81,7 @@ Or through the `RUSTRAK_HOST` environment variable:
 export RUSTRAK_HOST="https://api.rustrak.com"
 ```
 
-If no host is specified, the provider uses the default Rustrak API host.
+If neither `host` nor `RUSTRAK_HOST` is set, the provider uses `https://api.rustrak.dev`. Explicit provider arguments take precedence over environment variables.
 
 ## Usage
 
@@ -118,6 +118,22 @@ output "project_dsn" {
 }
 ```
 
+### Create an Alert Channel
+
+```hcl
+resource "rustrak_alert_channel" "operations" {
+  name          = "Operations"
+  provider_type = "webhook"
+  is_enabled    = true
+  credentials = jsonencode({
+    url = "https://example.com/alerts"
+  })
+}
+```
+
+Alert channels use the current `/api/integrations` API and require an admin token.
+See the [alert channel reference](docs/resources/alert_channel.md) for provider types, credentials, and import behavior.
+
 ## Import
 
 Existing Rustrak projects can be imported using their project ID:
@@ -126,7 +142,13 @@ Existing Rustrak projects can be imported using their project ID:
 terraform import rustrak_project.example 123
 ```
 
-After importing, refresh the Terraform state:
+Existing alert integrations can be imported using their integration ID:
+
+```bash
+terraform import rustrak_alert_channel.operations 456
+```
+
+After importing, provide matching resource configuration and review the plan:
 
 ```bash
 terraform plan
@@ -137,8 +159,11 @@ terraform plan
 | Resource          | Description               |
 | ----------------- | ------------------------- |
 | `rustrak_project` | Manages a Rustrak project |
+| `rustrak_alert_channel` | Manages an alert integration |
 
 More detailed resource documentation is available in [`docs/resources/project.md`](docs/resources/project.md).
+
+Alert channel usage and import examples are available in [`docs/resources/alert_channel.md`](docs/resources/alert_channel.md).
 
 ## Development
 
@@ -155,11 +180,34 @@ Install dependencies:
 go mod tidy
 ```
 
-Run the tests:
+### Tests
+
+Run the automated suite:
 
 ```bash
 go test ./...
 ```
+
+Tests use local mock HTTP servers and do not require a Rustrak instance, API token, or Terraform installation. They cover:
+
+* Project API methods, paths, authentication headers, request bodies, response decoding, and error handling.
+* Project create, refresh, update, delete, import, server defaults, remote changes, and missing-project behavior.
+* Alert channel lifecycle, credentials, Slack token masking, schema validation, and API failures.
+* Provider configuration, environment-variable precedence, resource registration, and client error classification.
+
+Run race detection and coverage:
+
+```bash
+go test -race -cover ./...
+```
+
+Run static checks:
+
+```bash
+go vet ./...
+```
+
+The suite does not exercise a live Rustrak server or Terraform CLI acceptance workflow.
 
 Build the provider:
 
@@ -174,8 +222,10 @@ go build ./...
 ├── docs/
 │   ├── index.md
 │   └── resources/
+│       ├── alert_channel.md
 │       └── project.md
 ├── internal/
+│   ├── alertchannel/
 │   ├── client/
 │   ├── config/
 │   ├── project/

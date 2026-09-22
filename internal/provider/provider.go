@@ -29,7 +29,8 @@ func Provider() *schema.Provider {
 			},
 		},
 		ResourcesMap: map[string]*schema.Resource{
-			"rustrak_project": resources.Project(),
+			"rustrak_project":       resources.Project(),
+			"rustrak_alert_channel": resources.AlertChannel(),
 		},
 		ConfigureContextFunc: providerConfigure,
 	}

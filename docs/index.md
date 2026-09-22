@@ -77,7 +77,7 @@ The URL of the Rustrak API.
 
 **Environment variable:** `RUSTRAK_HOST`
 
-If `host` is not explicitly configured, the provider uses its default API host.
+If `host` is not explicitly configured, the provider uses `RUSTRAK_HOST`, or `https://api.rustrak.dev` when that environment variable is unset. Explicit provider arguments take precedence over environment variables.
 
 ```hcl
 provider "rustrak" {
@@ -119,7 +119,8 @@ provider "rustrak" {
 
 The provider currently supports the following resources:
 
-* [`rustrak_project`](resources/project.md)
+* [`rustrak_project`](resources/project.md): Projects and their ingestion DSNs.
+* [`rustrak_alert_channel`](resources/alert_channel.md): Global alert integrations, managed through `/api/integrations` with an admin token.
 
 ## Complete Example
 
@@ -156,3 +157,7 @@ output "project_dsn" {
   sensitive = true
 }
 ```
+
+## Development and Testing
+
+See the [development guide](../README.md#development) for local tests, coverage, race detection, and build commands.

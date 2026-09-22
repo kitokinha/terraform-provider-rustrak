@@ -167,7 +167,7 @@ resource "rustrak_project" "example" {
 }
 ```
 
-After creation, Terraform stores the project ID and reads the complete project state from Rustrak.
+After creation, Terraform stores the project ID and reads the complete project state from Rustrak. If this refresh fails, the ID is retained so Terraform can retry reading the created project.
 
 ### Read
 
@@ -180,7 +180,7 @@ The following attributes are populated from the API response:
 * `platform`
 * `dsn`
 
-If the project no longer exists, Terraform removes it from the Terraform state.
+If the API returns HTTP 404, Terraform removes the project from state. If it remains in your configuration, the next plan proposes creating it again. Other API failures produce an error and retain the resource ID.
 
 ### Update
 
@@ -200,7 +200,7 @@ Destroying the Terraform resource deletes the corresponding project from Rustrak
 terraform destroy
 ```
 
-After successful deletion, the project is removed from Terraform state.
+After successful deletion, the project is removed from Terraform state. An HTTP 404 also counts as successful deletion because the project is already absent. Other API failures retain the resource ID and report an error.
 
 ## Complete Example
 
